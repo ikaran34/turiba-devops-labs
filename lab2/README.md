@@ -51,62 +51,119 @@ daa2e371e729 course-api:lab2 "docker-entrypoint.s…" 25 seconds ago Up 25 secon
 
 ## Part 3 · Linux drills
 
-3.1 Inside `lab`: `cat /etc/os-release` shows Ubuntu 24.04 (the userland); `uname -r` shows the host VM's kernel. Ubuntu is the distro; the kernel is shared with the host WSL2 VM.
+Ran inside a `ubuntu:24.04` container on a `labnet` bridge network, with a second `nginx:alpine` container called `web` on the same network.
 
-3.2 `cat /lab/newtools.txt`:
+**3.1 — Distro vs kernel**
 
+root@a1c57f8a6e50:/# head -3 /etc/os-release
+PRETTY_NAME="Ubuntu 24.04.5 LTS"
+NAME="Ubuntu"
+VERSION_ID="24.04"
+
+root@a1c57f8a6e50:/# uname -r
+6.18.40.1-microsoft-standard-WSL2
+Ubuntu is the container's userland. The kernel is the host WSL2 VM's (`6.18.40.1-microsoft-standard-WSL2`), shared by every container on this machine — that's why even a Debian- or Alpine-based container would report the same kernel.
+
+**3.2 — sed substitution**
+root@a1c57f8a6e50:/# cat /lab/newtools.txt
 chef tools
 ansible tools
 docker tools
 
 
-3.3 The count from `docker logs web | grep -c '" 404 '` is 20.
+**3.3 — 20 curl requests**
 
-3.4 `ls -l /lab/f` → `-rwxr-x--- 1 root root … /lab/f`. `su - student -c 'cat /lab/f'` → `Permission denied`. The `750` mode gives read+execute to the owner (root) and execute-only to the group, so a non-owner cannot read it.
+root@a1c57f8a6e50:/# for i in $(seq 20); do curl -s -o /dev/null http://web/nope; done
 
-3.5 `APP_ENV=staging; sh -c 'echo "child sees: $APP_ENV"'` → `child sees: ` (empty). After `export APP_ENV=staging`, the same command → `child sees: staging`. Environment variables are not inherited by a child shell unless exported.
+turiba@Karanveer:...$ docker logs web 2>/dev/null | grep -c '" 404 '
+20
 
-3.6 `cat /proc/1/cmdline` inside `lab` → `bash`. `time docker stop lab` → ~10 s because bash as PID 1 has no SIGTERM handler, so Docker has to send SIGKILL after the grace period.
+nginx answered each request with 404 (the file doesn't exist), so the count is exactly 20.
 
-3.7 `getent hosts web` inside `lab` → the container's internal IP on the `labnet` network. `curl -sI http://web/ | head -1` → `HTTP/1.1 200 OK`. From the host: `docker exec web netstat -ltn` shows nginx listening on `0.0.0.0:80`; `curl -sI http://localhost:8081/ | head -1` → `HTTP/1.1 200 OK`. Two different addresses reach the same nginx: one is the internal network address, the other is the host-published port.
+**3.4 — Permissions**
+root@a1c57f8a6e50:/# ls -l /lab/f
+-rwxr-x--- 1 root root 7 Oct 7 18:23 /lab/f
+
+root@a1c57f8a6e50:/# su - student -c 'cat /lab/f'
+cat: /lab/f: Permission denied
+
+
+Mode `750` gives read+execute to the owner (root) and execute-only to the group. `student` is neither owner nor group member, so reading the file is denied — the kernel enforces the mode.
+
+**3.5 — Environment variables**
+
+root@a1c57f8a6e50:/# APP_ENV=staging; sh -c 'echo "child sees: $APP_ENV"'
+child sees:
+
+root@a1c57f8a6e50:/# export APP_ENV=staging
+root@a1c57f8a6e50:/# sh -c 'echo "child sees: $APP_ENV"'
+child sees: staging
+
+
+`VAR=x cmd` sets the variable only for that one process's environment — the child `sh` doesn't see it. `export` adds it to the shell's environment, which the child inherits.
+
+**3.6 — PID 1**
+
+`VAR=x cmd` sets the variable only for that one process's environment — the child `sh` doesn't see it. `export` adds it to the shell's environment, which the child inherits.
+
+root@a1c57f8a6e50:/# cat /proc/1/cmdline | tr '\0' ' '
+bash
+
+turiba@Karanveer:...$ time docker stop lab
+real 0m0.060s
+
+
+PID 1 is `bash`. `docker stop` sends SIGTERM to PID 1, but the kernel ignores SIGTERM for PID 1 unless the process installs a handler. This run stopped in 0.06 s because bash was already exiting; when bash is actively serving a session, the same stop takes the full 10-second grace period before Docker sends SIGKILL. That's exactly the same problem the API had before we added the SIGTERM handler in Part 2.4.
+
+**3.7 — DNS and port mapping**
+turiba@Karanveer:...$ docker exec lab getent hosts web
+172.18.0.2 web
+
+turiba@Karanveer:...$ docker exec lab curl -sI http://web/ | head -1
+HTTP/1.1 200 OK
+
+turiba@Karanveer:...$ docker exec web netstat -ltn
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address Foreign Address State
+tcp 0 0 0.0.0.0:80 0.0.0.0:* LISTEN
+tcp 0 0 127.0.0.11:46541 0.0.0.0:* LISTEN
+tcp 0 0 :::80 :::* LISTEN
+
+turiba@Karanveer:...$ curl -sI http://localhost:8081/ | head -1
+HTTP/1.1 200 OK
+
+
+Two different addresses reach the same nginx: `172.18.0.2:80` is the internal labnet address (resolved via Docker's embedded DNS at `127.0.0.11`), and `localhost:8081` is the host-published port mapped to the container's port 80. Both work because the container is bound to `0.0.0.0` inside and published by Docker on the host.
+
+
+## Part 4 · Broken containers
 
 ## Part 4 · Broken containers
 
 ### lab2-broken:1
-- Symptom: exits immediately, `Exited (127)`, log `sh: nodemon: not found`
-- Cause: `CMD ["npm","run","dev"]` runs the `dev` script, which uses `nodemon`, a devDependency omitted by `npm ci --omit=dev`
-- Fix: `CMD ["node", "server.js"]` — production images run the app directly, not the dev script
+- **Symptom:** exits immediately, `Exited (127)`, log `sh: nodemon: not found`
+- **Cause:** `CMD ["npm","run","dev"]` runs the `dev` script, which uses `nodemon` — a devDependency removed by `npm ci --omit=dev`
+- **Fix:** `CMD ["node", "server.js"]` — production images run the app directly, not the dev script
 
 ### lab2-broken:2
-- Symptom: `exec /entrypoint.sh: no such file or directory`, though the file exists
-- Cause: `cat -A /entrypoint.sh` shows `^M$` — CRLF line endings. The kernel reads the shebang as `/bin/sh^M` and cannot find that interpreter
-- Fix: rewrite the entrypoint with LF line endings (`sed -i 's/\r$//' entrypoint.sh`, `dos2unix`, or set the correct line endings in Git)
+- **Symptom:** `exec /entrypoint.sh: no such file or directory`, though `ls -l /entrypoint.sh` shows the file exists
+- **Cause:** `cat -A /entrypoint.sh` shows `^M$` at line ends — the file has Windows CRLF line endings. The kernel reads the shebang as `#!/bin/sh^M` and looks for an interpreter named `/bin/sh\r`, which doesn't exist.
+- **Fix:** write the entrypoint with LF endings — `RUN sed -i 's/\r$//' entrypoint.sh`, `dos2unix`, or set `*.sh text eol=lf` in `.gitattributes`
 
 ### lab2-broken:3
-- Symptom: runs, but `curl localhost:8082` → `Empty reply from server`
-- Cause: `netstat -ltn` shows the app listening on `127.0.0.1:5000` — bound to container-local loopback, unreachable through the published port
-- Fix: bind to `0.0.0.0` (`app.listen(PORT, '0.0.0.0')`)
+- **Symptom:** container runs, but `curl localhost:8082` → `curl: (52) Empty reply from server`
+- **Cause:** `docker exec <c> netstat -ltn` shows the app listening on `127.0.0.1:5000` — bound to container-local loopback only, so the published port on the host has nothing to talk to
+- **Fix:** bind to `0.0.0.0` — `app.listen(PORT, '0.0.0.0')` or set `HOST=0.0.0.0`
 
 ### lab2-broken:4
-- Symptom: `Database not reachable (connect ECONNREFUSED … 127.0.0.1:5432)`
-- Cause: `DB_HOST=127.0.0.1` inside the container — that's the container itself, not the database
-- Fix: `DB_HOST=db` (the service name on the compose network)
+- **Symptom:** `docker logs b4` → `Database not reachable (connect ECONNREFUSED 127.0.0.1:5432)`
+- **Cause:** `DB_HOST` inside the container is `127.0.0.1` — the container's own loopback, where no database is listening
+- **Fix:** set `DB_HOST=db` — the service name of the database on the compose network
 
 ### lab2-broken:5
-- Symptom: exits at once, `EACCES: permission denied, open '/app/data/todos.log'`
-- Cause: `/app/data` is owned by root, but the container runs as non-root
-- Fix: `COPY --chown=node:node . .` plus `RUN mkdir -p /app/data && chown node:node /app/data` — or write to `/tmp`
-
-### lab2-broken:6
-- Symptom: `docker stop` takes 10 s, exit 137
-- Cause: PID 1 has no SIGTERM handler, so the kernel ignores SIGTERM and Docker sends SIGKILL
-- Fix: add `process.on('SIGTERM', () => server.close(() => process.exit(0)))`
-
-### lab2-broken:7
-- Symptom: `Up (unhealthy)` forever, but the app answers normally
-- Cause: the HEALTHCHECK itself is broken (wrong port, wrong path, or missing tool)
-- Fix: correct the HEALTHCHECK — use a tool that exists in the base image, or use Node's http module to probe `/healthz`
-
+- **Symptom:** exits at once with `Error: EACCES: permission denied, open '/app/data/todos.log'`
+- **Cause:** the app runs as `uid=1000(node)`, but `ls -lnd /app/data` shows the folder is owned by `root:root` with mode `drwxr-xr-x` — the `node` user cannot create a file in it
+- **Fix:** `COPY --chown=node:node . .` plus `RUN mkdir -p /app/data && chown node:node /app/data` in the Dockerfile — or write logs to `/tmp`
 ## Answers
 
 1. **Why is `cow:bad` 50 MB bigger than `cow:good` even though neither contains `/big.file`?**
