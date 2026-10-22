@@ -18,10 +18,11 @@ ____
 
 | # | Question | I predicted, and why | What the run showed |
 |---|----------|----------------------|---------------------|
-| P1 | Which jobs start together? | ____ | ____ |
-| P2 | Will `graph-package` find `build.txt`? | ____ | ____ |
-| P3 | With `break = build`: which jobs run, which fail, which are skipped? | ____ | ____ |
+**P1 — What the run showed:** graph-build ran first. Once it finished, graph-lint, graph-test, graph-package, and graph-report started at the same time.
 
+**P2 — What the run showed:** No. graph-test printed "version from graph-build: 1.0.1". graph-package printed "build.txt: not here: jobs don't share files".
+
+**P3 — What the run showed:** graph-build failed. graph-test and graph-package were skipped. graph-report still ran and succeeded.
 ## 2 · Pipeline
 
 - B5, before I filled it in: `localhost` or `db`? I predicted ____ because ____
