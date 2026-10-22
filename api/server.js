@@ -61,6 +61,7 @@ app.patch('/api/todos/:id', async (req, res) => {
   res.json(rows[0]);
 });
 
+if (!/^\d+$/.test(req.params.id)) return res.status(404).json({ error: 'todo not found' });
 app.delete('/api/todos/:id', async (req, res) => {
   const { rowCount } = await pool.query('DELETE FROM todos WHERE id = $1', [req.params.id]);
   if (rowCount === 0) return res.status(404).json({ error: 'todo not found' });
