@@ -21,7 +21,6 @@ app.get('/', (req, res) => {
   res.json({ name: 'course-api', version });
 });
 
-// Lab 2 (step 2.4): add the GET /healthz route here.
 app.get('/healthz', (req, res) => res.status(200).json({ status: 'ok' }));
 
 app.get('/api/todos', async (req, res) => {
@@ -36,7 +35,7 @@ app.post('/api/todos', async (req, res) => {
   if (error) return res.status(400).json({ error });
   const { rows } = await pool.query(
     'INSERT INTO todos (title) VALUES ($1) RETURNING id, title, done, created_at',
-    [req.body.title]
+    [req.body.title.trim()]
   );
   res.status(201).json(rows[0]);
 });
@@ -49,7 +48,7 @@ app.patch('/api/todos/:id', async (req, res) => {
   }
   const { rows } = await pool.query(
     'UPDATE todos SET title = COALESCE($1, title), done = COALESCE($2, done) WHERE id = $3 RETURNING id, title, done, created_at',
-    [title, done, req.params.id]
+    [title !== undefined ? title.trim() : undefined, done, req.params.id]
   );
   if (rows.length === 0) return res.status(404).json({ error: 'todo not found' });
   res.json(rows[0]);
@@ -77,7 +76,6 @@ async function start() {
     console.log(`API listening on port ${PORT}`);
   });
 
-  // Lab 2 (step 2.4): add the SIGTERM handler here.
   process.on('SIGTERM', () => {
     console.log('SIGTERM received, closing the server');
     server.close(() => pool.end().then(() => process.exit(0)));
