@@ -35,12 +35,23 @@ ____
 
 ## 3 · Red PR
 
-- Red PR (URL): ____
-- The test that failed, with Expected and Received (copied): ____
-- The cause line from "On failure: the API log" (copied): ____
-- The merge box while it was red (the text, copied): ____
-- Which commit did the red check test: your branch alone, or your branch merged with `main`? How do you know? ____
+## 3 · Red, then green
 
+**PR URL:** https://github.com/ikaran34/turiba-devops-labs/pull/12
+
+**First push (red):**
+- `ci / integration` failed with: `Expected: 404 / Received: 500`
+- `ci / image` was skipped (it needs `integration`)
+- Merge button: "Some checks were not successful" (greyed out)
+
+**Cause from the API log:**
+`DELETE /api/todos/abc failed: invalid input syntax for type integer: "abc"`
+
+**Fix:**
+Added `if (!/^\d+$/.test(req.params.id)) return res.status(404).json({ error: 'todo not found' });` at the top of the `DELETE /api/todos/:id` handler in `api/server.js`. The subsequent lint and integration failures showed additional bugs, which were fixed as well.
+
+**Which commit did the red check test?**
+The first commit on the branch (`db0c79f test: DELETE /api/todos/abc must answer 404`), before any fix was applied. The run's summary page shows the commit hash. Because a PR's checks run on the merge of the PR branch into `main`, the red check tested the branch state with the failing test, and the green check tested the same branch with the fix applied.
 ## 4 · Answers
 
 **A1.** ____
