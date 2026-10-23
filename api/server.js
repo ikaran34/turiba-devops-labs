@@ -21,7 +21,6 @@ app.get('/', (req, res) => {
   res.json({ name: 'course-api', version });
 });
 
-// Lab 2 (step 2.4): add the GET /healthz route here.
 app.get('/healthz', (req, res) => res.status(200).json({ status: 'ok' }));
 
 app.get('/api/todos', async (req, res) => {
@@ -42,57 +41,45 @@ app.post('/api/todos', async (req, res) => {
 });
 
 app.patch('/api/todos/:id', async (req, res) => {
-  const { title, done } = req.body ?? {};
+  const { title, done } = req.body;
   if (title !== undefined) {
     const error = validateTitle(title);
     if (error) return res.status(400).json({ error });
   }
-  if (done !== undefined && typeof done !== 'boolean') {
-    return res.status(400).json({ error: 'done must be true or false' });
-  }
   const { rows } = await pool.query(
-    `UPDATE todos
-        SET title = COALESCE($2, title), done = COALESCE($3, done)
-      WHERE id = $1
-      RETURNING id, title, done, created_at`,
-    [req.params.id, title?.trim(), done]
+    'UPDATE todos SET title = COALESCE($1, title), done = COALESCE($2, done) WHERE id = $3 RETURNING id, title, done, created_at',
+    [title !== undefined ? title.trim() : undefined, done, req.params.id]
   );
   if (rows.length === 0) return res.status(404).json({ error: 'todo not found' });
   res.json(rows[0]);
 });
 
 app.delete('/api/todos/:id', async (req, res) => {
-  const { rowCount } = await pool.query('DELETE FROM todos WHERE id = $1', [req.params.id]);
-  if (rowCount === 0) return res.status(404).json({ error: 'todo not found' });
+  if (!/^\d+$/.test(req.params.id)) return res.status(404).json({ error: 'todo not found' });
+  const { rows } = await pool.query(
+    'DELETE FROM todos WHERE id = $1 RETURNING id, title, done, created_at',
+    [req.params.id]
+  );
+  if (rows.length === 0) return res.status(404).json({ error: 'todo not found' });
   res.status(204).end();
 });
 
-// Unknown routes
-app.use((req, res) => {
-  res.status(404).json({ error: 'not found' });
-});
+async function start() {
+  try {
+    await ensureSchema();
+    console.log('Database ready');
+  } catch (err) {
+    console.error('Database not reachable (' + describeError(err) + '). The API keeps running; /api/todos answers 500 until a database is available.');
+  }
 
-// Errors, for example when the database is not reachable
-app.use((err, req, res, next) => {
-  console.error(`${req.method} ${req.path} failed: ${describeError(err)}`);
-  res.status(500).json({ error: 'internal error' });
-});
-
-const server = app.listen(PORT, () => {
-  console.log(`API listening on port ${PORT}`);
-});
-
-ensureSchema()
-  .then(() => console.log('Database ready'))
-  .catch((err) => {
-    console.warn(
-      `Database not reachable (${describeError(err)}). ` +
-        'The API keeps running; /api/todos answers 500 until a database is available.'
-    );
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`API listening on port ${PORT}`);
   });
 
-// Lab 2 (step 2.4): add the SIGTERM handler here.
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, closing the server');
-  server.close(() => pool.end().then(() => process.exit(0)));
-});
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, closing the server');
+    server.close(() => pool.end().then(() => process.exit(0)));
+  });
+}
+
+start();
