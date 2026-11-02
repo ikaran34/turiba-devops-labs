@@ -18,9 +18,10 @@ GitHub user: ikaran34 · Reference pipeline used (Part 0 fallback): no
 - **Why lint, unit and integration stayed green:** Those three jobs run the source code directly on the runner, where `banner.js` exists. The image is the only place affected by `.dockerignore`.
 - **My fix:** I deleted the `banner.js` line from `api/.dockerignore` so the file would be included in the image again.
 
+
 ## 3 · Release
 
-*(You will fill this in after Part 3)*
 - Release page: https://github.com/ikaran34/turiba-devops-labs/releases/tag/v0.2.0
 - Image: `ghcr.io/ikaran34/turiba-devops-labs/api:0.2.0`, platforms: **linux/amd64, linux/arm64**
-- One thing in Part 3 that didn't work the first time, and how I fixed it: **I will describe this after completing Part 3.**
+- One thing in Part 3 that didn't work the first time, and how I fixed it: **The release workflow ran successfully on the first attempt. I reused the Lab 5 GHCR login pattern and added `docker/metadata-action` with `type=semver` for the version tag. The trickiest part was remembering that `release.yml` must be on `main` before pushing the tag, because a tag runs the workflows that exist in the tagged commit.**
+
