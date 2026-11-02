@@ -83,3 +83,6 @@ async function start() {
 }
 
 start();
+
+// Startup banner
+require('./banner');
