@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
         - name: api
-          image: ghcr.io/ikaran34/turiba-devops-labs/api:ca0bada079aa9af85eb483f6c22ec2ae75494914
+          image: ghcr.io/ikaran34/turiba-devops-labs/api:0.2.O
           ports:
             - containerPort: 5000
