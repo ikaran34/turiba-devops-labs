@@ -80,4 +80,12 @@ rollout undo output:
 deployment.apps/api rolled back
 What the undo did: It rolled the cluster back to the previous ReplicaSet (ca0bada), but did not change my local YAML file (which still said 9.9.9). To make the cluster and Git agree, I restored the YAML with git restore and re-applied it.
 
-4 · What broke and how I found it
+## 4 · What broke and how I found it
+
+- 🔮 Before applying the teammate's branch, I expected this to go wrong first: ____
+
+| # | What I saw | The command, and the line of output that showed it | My fix (commit) |
+|--:|------------|-----------------------------------------------------|-----------------|
+| 1 | One Pod stuck in ImagePullBackOff while the 3 old Pods stayed running. | kubectl -n course describe pod <pod-name> showed: Failed to pull image "ghcr.io/martinsturiba/turiba-devops-labs/api:0.2.O": not found | fix(k8s): correct image tag typo from 0.2.O to 0.2.0 |
+| 2 | Port-forward hung, and curl failed. The Service couldn't find the pods. | kubectl -n course get endpointslices -l kubernetes.io/service-name=api returned <none>. The Service selector was app.kubernetes.io/name: api, but Pods were app: api. | fix(k8s): correct service selector to match pod labels |
+| 3 | curl returned Empty reply from server and connection refused. | The port-forward output showed connection refused. The targetPort in the service was 8080, but the API listens on 5000. | fix(k8s): correct targetPort to 5000 |
