@@ -1,5 +1,5 @@
-# Verified manifest
-apiVersion: apps/v1
+      labels:
+        app: apiapiVersion: apps/v1
 kind: Deployment
 metadata:
   name: api
@@ -12,7 +12,7 @@ spec:
   template:
     metadata:
       labels:
-        app: api
+        app.kubernetes.io/name: api
     spec:
       containers:
         - name: api

@@ -1,5 +1,5 @@
-# Verified manifest
-apiVersion: v1
+  selector:
+    app: apiapiVersion: v1
 kind: Service
 metadata:
   name: api
@@ -7,7 +7,7 @@ metadata:
 spec:
   type: ClusterIP
   selector:
-    app: api
+    app.kubernetes.io/name: api
   ports:
     - port: 80
       targetPort: 5000
