@@ -1,4 +1,3 @@
-# Verified manifest
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -12,10 +11,10 @@ spec:
   template:
     metadata:
       labels:
-        app: api
+        app.kubernetes.io/name: api
     spec:
       containers:
         - name: api
-          image: ghcr.io/ikaran34/turiba-devops-labs/api:0.2.0
+          image: ghcr.io/ikaran34/turiba-devops-labs/api:0.2.O
           ports:
             - containerPort: 5000
