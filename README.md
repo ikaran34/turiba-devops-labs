@@ -13,17 +13,24 @@ Lab guides for **Software Development and IT Operations (DevOps)**, course ELE10
 | 5 | S5 · Continuous Integration I | [Your first CI pipeline](lab05-ci-pipeline/README.md) | The URL of your fork on Evaluentis: a green CI pipeline on main, an image on GHCR, four required checks, a red-then-green PR, and lab5/README.md. Due Wed 21 Oct, 22:00 |
 | 6 | S6 · Continuous Integration II | [Test what you ship, ship a release](lab06-test-and-release/README.md) | The URL of your fork on Evaluentis: a smoke test in your image job, a red-then-green break-fix PR, release v0.2.0 with its image, and lab6/README.md. Due Tue 3 Nov, 22:00 |
 | 7 | S7 · Kubernetes I | [Run it on a cluster](lab07-run-it-on-a-cluster/README.md) | The URL of your fork on Evaluentis: k8s/ with a Namespace, a Deployment and a Service that one apply turns into a working app, a merged break-fix PR, and lab7/README.md. Due Tue 10 Nov, 22:00 |
+| 8 | S8 · Kubernetes II (self-study) | [Run the whole app](lab08-run-the-whole-app/README.md) | The URL of your fork on Evaluentis: k8s/ with PostgreSQL on a PVC, a ConfigMap, probes and resources that one apply (plus the Secret) turns into a working app whose data survives a new database Pod, a merged break-fix PR, and lab8/README.md. Due Sat 14 Nov, 22:00 |
 
 The next lab guide is published here before its session.
+
+## Capstone
+
+**[Ship it, run it, explain it](capstone-brief/README.md):** your fork, with the missions working together. You hand in the URL of your fork on Evaluentis. **Due Sat 28 Nov, 23:59.** The exam on Mon 30 Nov is about this same fork.
 
 ## What is in this repository
 
 | Folder | What it is |
 |--------|------------|
 | `lab0N-…/` | The lab guides. Read them; don't change them |
+| `capstone-brief/` | The capstone brief. Read it; don't change it |
 | `.github/workflows/` | Workflows that run in your fork on GitHub (from Lab 5 on). The course ships `lab05-graph.yml`; your own `ci.yml` goes here too |
 | `api/` | The **course API**, a small todo service in Node.js. You containerize it in Lab 2 and keep improving it all semester ([details](api/README.md)) |
 | `lab1/`, `lab2/`, … | Created by you in your fork: your write-up for each lab |
+| `capstone/` | Created by you in your fork: your capstone write-up, `capstone/README.md` |
 
 ## Get updates into your fork
 
@@ -123,6 +130,10 @@ kind delete cluster --name s7-check
 - **Rancher Desktop or Docker Desktop:** leave their own Kubernetes switched **off**. kind brings its own.
 - `which kubectl` shows a path under `/mnt/c/…`? That's Rancher Desktop's copy. Open a new terminal; `/usr/local/bin/kubectl` should come first.
 - **`kind create cluster` fails?** Keep the full error message and bring it to the session. If your laptop can't run kind, you can do Lab 7 in a browser playground ([Killercoda](https://killercoda.com/playgrounds), free account, one-hour sessions).
+
+## Before Lab 8
+
+Nothing new to install: Lab 8 uses kind and kubectl from Lab 7. Read the Session 8 slides on BATIS first. The first database Pod downloads the image `postgres:17-alpine`, which takes a minute or two. Your starting point is your Lab 7 `k8s/`; if it doesn't work, the Lab 8 guide has fallback files.
 
 ## Stuck?
 
