@@ -1,5 +1,4 @@
-      labels:
-        app: apiapiVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: api
@@ -14,8 +13,24 @@ spec:
       labels:
         app: api
     spec:
+      initContainers:
+        - name: wait-for-db
+          image: postgres:17-alpine
+          command: ["sh", "-c", "until pg_isready -h \"$DB_HOST\" -p \"$DB_PORT\"; do echo waiting for the database; sleep 2; done"]
+          envFrom:
+            - configMapRef:
+                name: app-config
       containers:
         - name: api
           image: ghcr.io/ikaran34/turiba-devops-labs/api:0.2.0
           ports:
             - containerPort: 5000
+          envFrom:
+            - configMapRef:
+                name: app-config
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: password
