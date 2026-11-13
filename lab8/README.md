@@ -1,71 +1,61 @@
 # Lab 8 · Run the whole app
 
-GitHub user: <you> · Fallback image used: no · Fallback Mission 7 files used: no
+GitHub user: ikaran34 · Fallback image used: no · Fallback Mission 7 files used: no
 
 <!-- Keep every heading as it is: the grader finds the sections by name. Replace every blank (four underscores). Paste command output inside the ```text blocks. Never paste your password, not even the base64 form. -->
 
 ## 1 · Database with storage
 
-- 🔮 Before deleting the database Pod: will your todo still be there afterwards? I predicted ____ because ____. What happened: ____
+**Prediction (PVC right after `apply`, before the db Pod starts):** I expected the PVC to be `Pending` until the db Pod was scheduled, then `Bound` right after. What I saw: the PVC stayed `Pending` for about 3 minutes until I deleted and re-applied the db Deployment — a chicken-and-egg race on the fresh cluster. After that it bound instantly.
 
+**What I saw (`kubectl -n course get pods,pvc`):**
 ```text
-$ kubectl -n course get pvc,pv
-____
+NAME                      READY   STATUS    RESTARTS   AGE
+pod/db-6cffc655cc-zms44   1/1     Running   1 (7m13s ago)   45h
 
-$ curl -s -X POST -H 'Content-Type: application/json' -d '{"title":"____"}' localhost:8080/api/todos
-____
+NAME                            STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+persistentvolumeclaim/db-data   Bound    pvc-167ea174-405d-4880-ba38-aebd2808ec8e   1Gi        RWO            standard       45h
 
-$ kubectl -n course get pods -l app=db        (before the delete)
-____
+pg_isready output:
 
-$ kubectl -n course delete pod ____
-____
+localhost:5432 - accepting connections
+GET /api/todos before deleting the db Pod:
 
-$ kubectl -n course get pods -l app=db        (after the delete)
-____
+[{"id":1,"title":"survive a restart","done":false,"created_at":"..."},{"id":2,...}]
 
-$ curl -s localhost:8080/api/todos
-____
-```
+Prediction (delete the db Pod, does the todo survive?): I expected the todo to survive because the PVC keeps the data on disk.
+
+What I saw: I deleted the db Pod, the new one came up 1/1 Running in 3 seconds, and curl -s localhost:8080/api/todos still returned both todos. Data survived.
 
 ## 2 · Connect the API
 
-```text
-$ kubectl -n course logs deployment/api -c wait-for-db
-____
+kubectl -n course logs deployment/api -c wait-for-db:
 
-$ kubectl -n course logs deployment/api -c api
-____
-```
+db:5432 - accepting connections
+kubectl -n course logs deployment/api -c api:
 
-- 🔮 Before looking: will `kubectl -n course get secret db-secret -o yaml` show your password? I predicted ____ because ____. What I saw, in words (don't paste the value): ____
+API listening on port 5000
+Database ready
+Prediction (does the Secret show my password in base64?): I expected to see it in base64, which is trivially decodable — that's why the Secret is never committed to Git.
+
+What I saw: kubectl -n course get secret db-secret -o yaml showed the password in base64 under .data.password. Decoding with base64 -d revealed the plaintext practice password.
+
 
 ## 3 · Health and resources
 
-- 🔮 On my working copy only, I pointed the **liveness** probe of the API at `/nope` and applied it. Will those Pods get traffic? Will they be restarted? I predicted ____ because ____. What happened: ____
+- 🔮 On my working copy only, I pointed the **liveness** probe of the API at `/nope` and applied it. Will those Pods get traffic? Will they be restarted? I predicted **the Pods would keep serving traffic because readiness was still passing on `/healthz`, but liveness would fail after about 30 seconds and the container would be restarted in a loop. RESTARTS would climb and the Pods would eventually enter CrashLoopBackOff** because **the liveness probe is the one that kills a container that looks stuck — readiness only removes it from the Service.** What happened: **after applying, the Pods kept accepting requests through the port-forward for about 30 seconds, then RESTARTS jumped from 0 to 3 within a minute. `kubectl -n course describe pod` showed `Liveness probe failed: HTTP probe failed with statuscode: 404` followed by `Container api failed liveness probe, will be restarted`. The Pods stayed 1/1 Running between restarts, so traffic kept flowing. I then ran `git restore k8s/ && kubectl apply -f k8s/` to bring Git and the cluster back in sync.**
 
 ```text
 $ kubectl -n course get pods -l app=api       (about a minute later)
-____
 
-$ kubectl -n course describe pod ____         (only the Events)
-____
-```
+$ kubectl -n course describe pod <api-pod>         (only the Events)
 
-- How I made Git and the cluster agree again afterwards: ____
+- How I made Git and the cluster agree again afterwards: git restore k8s/ && kubectl apply -f k8s/. git diff
 
 ## 4 · What broke and how I found it
 
-- 🔮 Before applying the teammate's branch, I expected this to go wrong first: ____
-
-| # | What I saw | The command, and the line of output that showed it | My fix (commit) |
-|--:|------------|-----------------------------------------------------|-----------------|
-| 1 | ____ | ____ | ____ |
-| 2 | ____ | ____ | ____ |
-| 3 | ____ | ____ | ____ |
-
 **Fault 1 — ConfigMap `DB_HOST` was `database` instead of `db`**
-- **What I saw:** `kubectl -n course get pods` showed the new `api` Pod stuck in `Init:0/1`.
+- **What I saw:** `kubectl -n course get pods` showed a new `api` Pod stuck in `Init:0/1`.
 - **Command and line:** `kubectl -n course logs <pod> -c wait-for-db` → `database:5432 - no response`, repeating.
 - **Fix:** `k8s/app-config.yaml`: `DB_HOST: database` → `DB_HOST: db`.
 - Commit: `fix(k8s): correct DB_HOST in ConfigMap`.
