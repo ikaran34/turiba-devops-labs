@@ -37,7 +37,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /healthz
-              port: 5001
+              port: 5000
             periodSeconds: 5
           livenessProbe:
             httpGet:
