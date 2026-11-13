@@ -63,3 +63,21 @@ ____
 | 1 | ____ | ____ | ____ |
 | 2 | ____ | ____ | ____ |
 | 3 | ____ | ____ | ____ |
+
+**Fault 1 — ConfigMap `DB_HOST` was `database` instead of `db`**
+- **What I saw:** `kubectl -n course get pods` showed the new `api` Pod stuck in `Init:0/1`.
+- **Command and line:** `kubectl -n course logs <pod> -c wait-for-db` → `database:5432 - no response`, repeating.
+- **Fix:** `k8s/app-config.yaml`: `DB_HOST: database` → `DB_HOST: db`.
+- Commit: `fix(k8s): correct DB_HOST in ConfigMap`.
+
+**Fault 2 — Secret key was misspelled as `pasword`**
+- **What I saw:** After Fault 1, `api` Pods went to `CreateContainerConfigError`.
+- **Command and line:** `kubectl -n course describe pod <pod>` → `couldn't find key pasword in Secret course/db-secret`.
+- **Fix:** `k8s/api-deployment.yaml`: `key: pasword` → `key: password`.
+- Commit: `fix(k8s): correct Secret key name in api Deployment`.
+
+**Fault 3 — Readiness probe used port `5001`**
+- **What I saw:** After Fault 2, `api` Pods stayed `0/1 Running` and never became Ready.
+- **Command and line:** `kubectl -n course describe pod <pod>` → `Readiness probe failed: ... :5001/healthz ... connection refused`.
+- **Fix:** `k8s/api-deployment.yaml`: `port: 5001` → `port: 5000`.
+- Commit: `fix(k8s): correct readiness probe port`.
