@@ -1,8 +1,6 @@
 # Lab 9 · Package it with Helm
 
-GitHub user: ikaran34 · Fallback image used: no · Fallback Mission 8 files used: no
-
-<!-- Keep every heading as it is: the grader finds the sections by name. Replace every blank (four underscores). Paste command output inside the ```text blocks. Never paste your password. -->
+GitHub user: ikaran34 · Fallback Mission 8 files used: no · Fallback image used: no
 
 ## 1 · From k8s/ to a chart
 
@@ -18,11 +16,55 @@ GitHub user: ikaran34 · Fallback image used: no · Fallback Mission 8 files use
   replicas: 1
           image: postgres:17-alpine
 
-## 2 · Install, upgrade, rollback
+Why the Namespace and the Secret are not in the chart: Helm never takes over an object it didn't make. You create the Namespace (kubectl create namespace course) and the Secret (kubectl create secret generic db-secret ...) before helm install, so Helm sees they already exist and leaves them alone. If the chart tried to make them too, helm install would refuse with invalid ownership metadata.
 
-**3a — Prediction (upgrade to a non-existent tag):** `helm upgrade` will say `STATUS: deployed` because the cluster accepts the change. The new API Pods will show `ErrImagePull` because the tag doesn't exist. The 3 old Pods keep serving because the rolling update protects them. `GET /api/todos` still answers.
+2 · Install, upgrade, rollback
+Prediction (upgrade to a non-existent tag): helm upgrade will say STATUS: deployed because the cluster accepts the change. The new API Pods will show ErrImagePull. The 3 old Pods keep serving. GET /api/todos still answers.
 
-**3b — Prediction (rollback to revision 1):** `helm rollback course-app 1` will create revision 3 (not 2). Revision 3 will say `Rollback to 1`. The todo survives because the PVC isn't touched.
+What I saw (helm upgrade ... --set api.image.tag=does-not-exist):
 
-**4 — Prediction (uninstall and reinstall):** The todo is gone because `helm uninstall` deletes everything the release made — including the PVC and its data.
+Release "course-app" has been upgraded. Happy Helming!
+NAME: course-app
+LAST DEPLOYED: ...
+NAMESPACE: course
+STATUS: deployed
+REVISION: 2
+What I saw (kubectl -n course get pods -l app=api during the bad upgrade):
 
+NAME                       READY   STATUS         RESTARTS   AGE
+api-...-badpod             0/1     ErrImagePull   0          30s
+api-...-oldpod1            1/1     Running        0          5m
+api-...-oldpod2            1/1     Running        0          5m
+api-...-oldpod3            1/1     Running        0          5m
+What I saw (curl -s localhost:8080/api/todos during the bad upgrade): the todo was still returned (the old Pods kept serving).
+
+helm history after the bad upgrade:
+
+REVISION  STATUS      DESCRIPTION
+1         superseded  Install complete
+2         deployed    Upgrade complete
+Prediction (rollback to revision 1): a new revision 3 will appear with the settings of revision 1. It will say Rollback to 1. The todo survives because the PVC isn't touched.
+
+What I saw (helm rollback course-app 1 -n course):
+
+Rollback was a success! Happy Helming!
+helm history after the rollback:
+
+REVISION  STATUS      DESCRIPTION
+1         superseded  Install complete
+2         superseded  Upgrade complete
+3         deployed    Rollback to 1
+Prediction (uninstall and reinstall): the todo is gone because helm uninstall deletes everything the release made — including the PVC and its data.
+
+What I saw (helm uninstall course-app -n course + kubectl -n course get pvc,secret):
+
+release "course-app" uninstalled
+NAME        TYPE     DATA   AGE
+db-secret   Opaque   1      20m     ← still there (made by kubectl, not Helm)
+
+NAME                            STATUS   VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS
+persistentvolumeclaim/db-data   ...      ...      ...        ...            ...         ← terminating or gone
+After helm install course-app charts/course-app -n course, curl -s localhost:8080/api/todos returned [] — the data went with the PVC.
+
+3 · What broke and how I found it
+(To be completed in Part 4 — three faults from break.sh)
