@@ -18,7 +18,7 @@ GitHub user: ikaran34 · Fallback Mission 8 files used: no · Fallback image use
 
 Why the Namespace and the Secret are not in the chart: Helm never takes over an object it didn't make. You create the Namespace (kubectl create namespace course) and the Secret (kubectl create secret generic db-secret ...) before helm install, so Helm sees they already exist and leaves them alone. If the chart tried to make them too, helm install would refuse with invalid ownership metadata.
 
-2 · Install, upgrade, rollback
+## 2 · Install, upgrade, rollback
 Prediction (upgrade to a non-existent tag): helm upgrade will say STATUS: deployed because the cluster accepts the change. The new API Pods will show ErrImagePull. The 3 old Pods keep serving. GET /api/todos still answers.
 
 What I saw (helm upgrade ... --set api.image.tag=does-not-exist):
@@ -66,5 +66,5 @@ NAME                            STATUS   VOLUME   CAPACITY   ACCESS MODES   STOR
 persistentvolumeclaim/db-data   ...      ...      ...        ...            ...         ← terminating or gone
 After helm install course-app charts/course-app -n course, curl -s localhost:8080/api/todos returned [] — the data went with the PVC.
 
-3 · What broke and how I found it
-(To be completed in Part 4 — three faults from break.sh)
+## 3 · What broke and how I found it
+(To	 be completed in Part 4 — three faults from break.sh)
