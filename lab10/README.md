@@ -22,33 +22,47 @@ git status --short before commit: exactly seven files: .gitignore, .terraform.lo
 
 ## 2 · Change, drift, rebuild
 
+**Experiment 1 — Change with `-var api_replicas=2`:**
+- **Prediction:** `~ update in-place` for the Helm release, `set.value` changes `"3" -> "2"`, Deployment shows `2/2`.
+- **What I saw:**
 ```text
-$ tofu apply -var api_replicas=2               (the plan: the symbol and the value that changes)
-____
+~ resource "helm_release" "course_app" {
+    ~ set = [
+        ~ { name = "api.replicas", value = "3" -> "2" },
+      ]
+  }
+Plan: 0 to add, 1 to change, 0 to destroy.
 
-$ helm history course-app -n course
-____
+helm history:
 
-$ tofu plan -var api_replicas=2                (after kubectl -n course delete secret db-secret)
-____
+REVISION  STATUS      DESCRIPTION
+1         superseded  Install complete
+2         deployed    Upgrade complete
+kubectl get deployment api: api 2/2 2 2 3m16s
 
-$ tofu plan -var api_replicas=2                (after kubectl -n course scale deployment api --replicas=1)
-____
+Experiment 2 — Drift: delete the Secret:
 
-$ tofu apply                                   (the plan, and how many API Pods run afterwards)
-____
+Prediction: + create for kubernetes_secret_v1.db, Plan: 1 to add.
 
-$ time tofu destroy -auto-approve / time tofu apply -auto-approve      (the last lines and the times)
-____
+What I saw:
 
-$ curl -s localhost:8080/api/todos             (after the rebuild)
-____
-```
++ resource "kubernetes_secret_v1" "db" { ... }
+Plan: 1 to add, 0 to change, 0 to destroy.
+Experiment 3 — Drift: scale the Deployment:
 
-- 🔮 Step 1, `-var api_replicas=2`: which symbol, and which value changes? I predicted ____ because ____. What happened: ____
-- 🔮 Step 2, the deleted Secret and the scaled Deployment: what will each plan show? I predicted ____ because ____. What happened: ____
-- 🔮 Step 3, a plain `tofu apply`: what will the plan contain, and how many API Pods afterwards? I predicted ____ because ____. What happened: ____
-- 🔮 Step 4, after `tofu destroy` and `tofu apply`: is the todo still there? I predicted ____ because ____. What happened: ____
+Prediction: tofu plan shows no changes because the Deployment lives inside the Helm release.
+
+What I saw: Plan: 1 to add (only the Secret from Experiment 2, not the Deployment).
+
+Experiment 4 — Bring it back:
+
+Prediction: + create Secret and ~ update release ("2" -> "3"). Deployment back to 3/3.
+
+What I saw:
+
+Plan: 1 to add, 1 to change, 0 to destroy.
+Apply complete! Resources: 1 added, 1 changed, 0 destroyed.
+Deployment: 3/3
 
 ## 3 · What broke and how I found it
 
