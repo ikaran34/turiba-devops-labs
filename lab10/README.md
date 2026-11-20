@@ -1,67 +1,87 @@
 # Lab 10 · Build it from code with OpenTofu
 
-GitHub user: <you> · Fallback chart used: no
+GitHub user: ikaran34 · Fallback chart used: no
 
-<!-- Keep every heading as it is: the grader finds the sections by name. Replace every blank (four underscores). Paste command output inside the ```text blocks. Never paste the password, the state file or the kubeconfig. -->
+## 1 · The cluster from code
 
-## 1 · The cluster and the app from code
+**Prediction:** The first plan will show 1 resource to add (`kind_cluster.course`) and one output `kube_context` as `known after apply`. The cluster's endpoint and certificates will also be `known after apply`.
 
-**Prediction:** The first plan will show 1 resource to add (`kind_cluster.course`) and one output `kube_context` as `known after apply`. All the cluster's certificates and endpoint will also be `known after apply`.
-
-**`tofu plan` output:**
-
+**`tofu plan` output (cluster only):**
 Plan: 1 to add, 0 to change, 0 to destroy.
-ofu apply output:
+
+Changes to Outputs:
+  + kube_context = (known after apply)
 
 Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
 
 Outputs:
 kube_context = "kind-course"
-git status --short before commit: exactly seven files: .gitignore, .terraform.lock.hcl, main.tf, outputs.tf, providers.tf, variables.tf, versions.tf. No state or kubeconfig.
+git status --short before commit: 7 files only — .gitignore, .terraform.lock.hcl, main.tf, outputs.tf, providers.tf, variables.tf, versions.tf. No state, no kubeconfig.
 
+grep -c '"result"' terraform.tfstate: 1. The random password exists in the state file in plain text, which is why the state is in .gitignore and must never go to Git.
+
+Second tofu plan after apply: No changes. Your infrastructure matches the configuration.
 
 ## 2 · Change, drift, rebuild
 
-```text
-$ tofu apply -var api_replicas=2               (the plan: the symbol and the value that changes)
-____
+Experiment 1 — Change with -var api_replicas=2:
 
-$ helm history course-app -n course
-____
+Prediction: ~ update in-place for the Helm release, set.value changes "3" -> "2", Deployment shows 2/2.
 
-$ tofu plan -var api_replicas=2                (after kubectl -n course delete secret db-secret)
-____
+What I saw: ~ resource "helm_release" "course_app" with ~ value = "3" -> "2" in set. Plan: 0 to add, 1 to change, 0 to destroy.
 
-$ tofu plan -var api_replicas=2                (after kubectl -n course scale deployment api --replicas=1)
-____
+helm history: revision 2 (deployed), revision 1 (superseded).
 
-$ tofu apply                                   (the plan, and how many API Pods run afterwards)
-____
+Deployment: api 2/2 2 2
 
-$ time tofu destroy -auto-approve / time tofu apply -auto-approve      (the last lines and the times)
-____
+Experiment 2 — Drift: delete the Secret by hand:
 
-$ curl -s localhost:8080/api/todos             (after the rebuild)
-____
-```
+Prediction: + create for kubernetes_secret_v1.db.
 
-- 🔮 Step 1, `-var api_replicas=2`: which symbol, and which value changes? I predicted ____ because ____. What happened: ____
-- 🔮 Step 2, the deleted Secret and the scaled Deployment: what will each plan show? I predicted ____ because ____. What happened: ____
-- 🔮 Step 3, a plain `tofu apply`: what will the plan contain, and how many API Pods afterwards? I predicted ____ because ____. What happened: ____
-- 🔮 Step 4, after `tofu destroy` and `tofu apply`: is the todo still there? I predicted ____ because ____. What happened: ____
+What I saw: Plan: 1 to add, 0 to change, 0 to destroy. with + resource "kubernetes_secret_v1" "db".
+
+Experiment 3 — Drift: scale the Deployment by hand:
+
+Prediction: tofu plan shows no changes because the Deployment is inside the Helm release.
+
+What I saw: Plan: 1 to add (only the Secret from Experiment 2, not the Deployment). OpenTofu can't see the manual kubectl scale.
+
+Experiment 4 — Bring it back with tofu apply:
+
+Prediction: + create Secret, ~ update release ("2" -> "3"), Deployment 3/3.
+
+What I saw: Plan: 1 to add, 1 to change, 0 to destroy. and Apply complete! Resources: 1 added, 1 changed, 0 destroyed. Deployment back to 3/3.
+
+Experiment 5 — Rebuild from zero:
+
+Prediction: The todo is gone after tofu destroy + tofu apply because the PVC lives in the cluster.
+
+What I saw: curl -s localhost:8080/api/todos returned []. The data was lost with the cluster.
 
 ## 3 · What broke and how I found it
 
-- 🔮 Before `tofu plan` on the teammate's branch, I expected this to go wrong first: ____
+**Fault 1 — `hashicorp/kind` instead of `tehcyx/kind`**
+- **What I saw:** `tofu plan` failed with `Error: Inconsistent dependency lock file`.
+- **Command and line:** `tofu plan` → `provider registry.opentofu.org/hashicorp/kind: required by this configuration but no version is selected`.
+- **Fix:** `infra/versions.tf`: `source = "hashicorp/kind"` → `source = "tehcyx/kind"`.
+- Commit: `fix(infra): use the correct kind provider source`.
 
-| # | What I saw | The command, and the line of output that showed it | My fix (commit) |
-|--:|------------|-----------------------------------------------------|-----------------|
-| 1 | ____ | ____ | ____ |
-| 2 | ____ | ____ | ____ |
-| 3 | ____ | ____ | ____ |
+**Fault 2 — `../chart/course-app` instead of `../charts/course-app`**
+- **What I saw:** `tofu plan` failed with `Error: Error locating chart`.
+- **Command and line:** `tofu plan` → `Unable to locate chart ./../chart/course-app: path "./../chart/course-app" not found`.
+- **Fix:** `infra/main.tf`: `chart = "${path.module}/../chart/course-app"` → `chart = "${path.module}/../charts/course-app"`.
+- Commit: `fix(infra): use the correct chart path`.
+
+**Fault 3 — `namespace = "courses"` instead of the namespace reference**
+- **What I saw:** `tofu plan` showed `-/+ resource "helm_release" "course_app"` with `~ namespace = "course" -> "courses" # forces replacement`.
+- **Command and line:** `tofu plan` → `# helm_release.course_app must be replaced` and `~ namespace = "course" -> "courses" # forces replacement`.
+- **Fix:** `infra/main.tf`: `namespace = "courses"` → `namespace = kubernetes_namespace_v1.course.metadata[0].name`.
+- Commit: `fix(infra): use the namespace reference for the release`.
+
+If I had applied the third plan without fixing it, OpenTofu would have uninstalled the Helm release (destroying the PVC and my todos) and then failed with `namespaces "courses" not found`.
 
 ## 4 · In my own words
 
-- Why `.terraform.lock.hcl` goes into Git and `terraform.tfstate` doesn't: ____
-- What `-/+ … # forces replacement` means, and what it would have cost me in Part 4: ____
-- What I would lose by ending the day with `kind delete cluster` instead of `tofu destroy`: ____
+- Why `.terraform.lock.hcl` goes into Git and `terraform.tfstate` doesn't: The lock file records which provider versions were installed (checksums, not secrets), so everyone running `tofu init` on the same code gets identical providers. The state file records what actually exists in the cluster — it holds the database password and cluster certificates in plain text, and can't be regenerated by anyone else, so it must never go into Git.
+- What `-/+ … # forces replacement` means, and what it would have cost me in Part 4: OpenTofu can't change the resource in place — it must destroy and recreate it. In Part 4, Fault 3 changed the Helm release's namespace from `course` to `courses`. Applying it would have deleted the entire release (and the PVC), losing the database and all my saved todos. The `# forces replacement` comment is the warning.
+- What I would lose by ending the day with `kind delete cluster` instead of `tofu destroy`: `kind delete cluster` removes the cluster but leaves OpenTofu's state file untouched. The next `tofu plan` or `tofu apply` would fail with `dial tcp 127.0.0.1:... connect: connection refused` because the state still lists resources that no longer exist. `tofu destroy` deletes both the cluster and the state entry cleanly.
