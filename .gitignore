@@ -21,3 +21,4 @@ coverage/
 
 # Lab 4: database dumps never go into Git
 backup/
+*.old
