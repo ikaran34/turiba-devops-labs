@@ -1,37 +1,23 @@
-# Capstone · Ship it, run it, explain it
+# Capstone — Course App on kind
 
-## Run it from zero
+## What this is
 
-# 1. Clone the repo
-git clone https://github.com/ikaran34/turiba-devops-labs
-cd turiba-devops-labs
-
-# 2. Local Compose
-cp .env.example .env
-docker compose up -d
-# Open http://localhost:8080
-
-# 3. Kubernetes
-kind create cluster
-kubectl create namespace course
-kubectl -n course create secret generic db-secret --from-literal=password='<practice-password>'
-helm install course-app charts/course-app -n course
-kubectl -n course get pods
-kubectl -n course port-forward service/api 8080:80
-
+A full DevOps pipeline for a small Node.js course API plus PostgreSQL:
+local Docker Compose, CI on every PR, a tagged release to GHCR,
+a Helm chart, and a kind cluster provisioned with OpenTofu.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
   L["Your laptop<br/>docker compose up"] --> PR["Pull request"]
-  PR --> CI["CI: lint · unit ·<br/>integration · image + smoke"]
+  PR --> CI["CI: lint, unit,<br/>integration, image and smoke"]
   CI --> M["main"]
   M --> T["tag v1.0.0"]
-  T --> R["release.yml<br/>api:1.0.0 on GHCR<br/>+ GitHub Release"]
+  T --> R["release.yml<br/>api:1.0.0 on GHCR<br/>and GitHub Release"]
   R --> H["helm upgrade --install<br/>charts/course-app"]
-  H --> K["kind cluster<br/>API + PostgreSQL on a PVC"]
-
+  H --> K["kind cluster<br/>API and PostgreSQL on a PVC"]
+```
 
 ## What is where
 
@@ -39,23 +25,37 @@ flowchart LR
 |---|---|
 | `api/` | The Node.js course API (routes, DB, validation, tests) |
 | `api/Dockerfile` | Multi-stage, non-root, with HEALTHCHECK |
-| `charts/course-app/` | Helm chart (API + DB + Secret ref + PVC) |
+| `charts/course-app/` | Helm chart (API, DB, Secret ref, PVC) |
 | `.github/workflows/ci.yml` | lint, unit, integration, image (with smoke test) |
-| `.github/workflows/release.yml` | Tag-triggered release to GHCR + GitHub Release |
-| `infra/` | OpenTofu code (kind cluster + namespace + secret + chart) |
-| `compose.yaml` | Local dev: web + api + db |
+| `.github/workflows/release.yml` | Tag-triggered release to GHCR and GitHub Release |
+| `infra/` | OpenTofu code (kind cluster, namespace, secret, chart) |
+| `compose.yaml` | Local dev: web, api, db |
 
+## Quick start
 
-## Level and evidence
+```bash
+# 1. Local
+docker compose up --build
+curl http://localhost:8080/healthz
 
-I am submitting for **Minimum** (or **Target** if you did OpenTofu).
+# 2. Cluster
+tofu -chdir=infra init
+tofu -chdir=infra apply -auto-approve
+kubectl get pods -n course
+```
 
-- **M1:** `api/Dockerfile` — multi-stage, non-root. Compose works.
-- **M2:** `main` is protected. PRs merged for each change.
-- **M3:** `ci.yml` — lint, unit, integration, image (with smoke) green on `main`.
-- **M4:** Release `v1.0.0` created by `github-actions`.
-- **M5:** `helm install course-app charts/course-app -n course` — 3 API Pods + 1 DB Pod, data survives a db Pod restart.
-- **M6:** No secrets in Git.
-- **M7:** This file.
+## Evidence
 
+- **M1 — Container:** `api/Dockerfile` is multi-stage, runs as non-root, has a HEALTHCHECK. `docker compose up` works.
+- **M2 — Branching:** `main` is protected. Every change landed via a PR.
+- **M3 — CI:** `ci.yml` runs lint, unit, integration, image build with smoke test. Green on `main`.
+- **M4 — Release:** `v1.0.0` tag created by `github-actions`, image pushed to `ghcr.io/<you>/course-api:1.0.0`, GitHub Release published.
+- **M5 — Cluster:** `helm install course-app charts/course-app -n course` gives 3 API Pods and 1 DB Pod. Data survives a DB Pod restart.
+- **M6 — Secrets:** No secrets in Git. `.env.example` documents the shape; real values come from a Secret.
+- **M7 — This README.**
 
+## Known limitations
+
+- kind is single-node; no HA story.
+- Image is multi-arch (`linux/amd64`, `linux/arm64`) but only amd64 is tested on kind.
+- Rollback is `helm rollback`; no automated canary.
