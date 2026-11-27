@@ -21,8 +21,8 @@ docker compose up -d
 kind create cluster --name capstone
 
 kubectl create namespace course
-kubectl create secret generic course-app-db \\
-  --namespace course \\
+kubectl create secret generic course-app-db \
+  --namespace course \
   --from-literal=DB_PASSWORD=REPLACE_WITH_YOUR_PASSWORD
 
 helm upgrade --install course-app charts/course-app -n course
