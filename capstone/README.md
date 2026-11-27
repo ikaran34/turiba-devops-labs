@@ -64,7 +64,7 @@ A commit on a branch becomes a pull request. CI runs four jobs: lint, unit, inte
 
 ## Level and evidence
 
-I am claiming **Target**.
+I am claiming **Excellent**.
 
 - **M1 — Containers and local dev.** `api/Dockerfile` is multi-stage and runs as `USER node`. `docker compose up -d` starts db, api, web; the todo app works at `http://localhost:8081`.
 - **M2 — Version control.** `main` is protected with all four checks required. Every change landed through a PR. Commit messages follow Conventional Commits.
@@ -77,6 +77,8 @@ I am claiming **Target**.
 ### Target items
 
 - **T2 — Security gates.** A `gitleaks` job scans every PR and push for secrets and is a required check. `.github/dependabot.yml` covers `npm`, `github-actions`, and `docker`, and a Dependabot PR was merged. All third-party actions are pinned to full commit SHAs.
+- **T3 — Observability.** kube-prometheus-stack is installed. A Grafana dashboard (`observability/dashboard.json`) shows CPU, memory, and ready pods for the course namespace. See `observability/dashboard.png` for the screenshot.
+
 - **T1 — Infrastructure as code.** `infra/` holds OpenTofu for kind + Helm. `tofu apply` creates the cluster and installs the chart. `tofu destroy` tears it down. Running `tofu apply` again rebuilds everything from scratch. State files are not committed (verified with `.gitignore`).
 
 ## When it breaks
@@ -86,6 +88,10 @@ For the app on the cluster, three likely faults and how to find each one:
 1. **API pod in CrashLoopBackOff.** `kubectl logs -n course deploy/course-app-api` — usually the DB password is wrong or Postgres is not yet ready.
 2. **API returns 500 with the DB running.** `kubectl exec -n course deploy/course-app-api -- env | grep DB_` — the Secret is mounted but the env var names do not match what `api/db.js` reads.
 3. **DB pod Pending, PVC not bound.** `kubectl describe pvc -n course` — the StorageClass may be missing. `kubectl get sc` should show `standard` on kind.
+
+## Extension
+
+I chose the **Failure Drill** extension. I scaled the API deployment to 0 replicas to simulate an outage. The Grafana dashboard showed the pods disappearing. I scaled it back to 3, and it recovered. The full blameless postmortem is in `observability/postmortem.md`. This proves the system is observable and recovers cleanly from failure.
 
 ## Known issues
 
