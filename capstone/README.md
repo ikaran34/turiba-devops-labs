@@ -42,8 +42,9 @@ flowchart LR
   T --> R["release.yml<br/>api:1.0.0 on GHCR<br/>and GitHub Release"]
   R --> H["helm upgrade --install<br/>charts/course-app"]
   H --> K["kind cluster<br/>API and PostgreSQL on a PVC"]
-A commit on a branch becomes a pull request. CI runs four jobs: lint, unit, integration with a real Postgres, and image with a smoke test. Merging to main pushes the image to GHCR. Tagging v1.0.0 runs release.yml, which builds for amd64 and arm64, pushes to GHCR, and creates a GitHub Release. On a kind cluster, helm upgrade --install deploys the chart: the API at three replicas and PostgreSQL on a PVC.
+```
 
+A commit on a branch becomes a pull request. CI runs four jobs: lint, unit, integration with a real Postgres, and image with a smoke test. Merging to `main` pushes the image to GHCR. Tagging `v1.0.0` runs `release.yml`, which builds for amd64 and arm64, pushes to GHCR, and creates a GitHub Release. On a kind cluster, `helm upgrade --install` deploys the chart: the API at three replicas and PostgreSQL on a PVC.
 ## What is where
 
 | Path | What it is |
