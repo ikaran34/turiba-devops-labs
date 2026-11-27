@@ -21,15 +21,15 @@ docker compose up -d
 kind create cluster --name capstone
 
 kubectl create namespace course
-kubectl create secret generic course-app-db \
+kubectl create secret generic db-secret \
   --namespace course \
-  --from-literal=DB_PASSWORD=REPLACE_WITH_YOUR_PASSWORD
+  --from-literal=password=REPLACE_WITH_YOUR_PASSWORD
 
 helm upgrade --install course-app charts/course-app -n course
 
 kubectl get pods -n course
-kubectl port-forward -n course svc/course-app-api 5000:5000 &
-curl http://localhost:5000/healthz
+kubectl port-forward -n course svc/api 5000:80 &
+curl http://localhost:5000/api/todos
 
 kind delete cluster --name capstone
 ```
