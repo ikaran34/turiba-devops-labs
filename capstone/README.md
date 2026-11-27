@@ -47,7 +47,7 @@ A commit on a branch becomes a pull request. CI runs four jobs: lint, unit, inte
 ## What is where
 
 | Path | What it is |
-|---|---|
+|```|```|
 | `api/Dockerfile` | Multi-stage Node build, non-root user, HEALTHCHECK |
 | `api/server.js` | Express API with `/healthz` at line 24 |
 | `compose.yaml` | Local dev: db, api, web |
