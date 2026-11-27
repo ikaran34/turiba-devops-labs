@@ -64,7 +64,7 @@ A commit on a branch becomes a pull request. CI runs four jobs: lint, unit, inte
 
 ## Level and evidence
 
-I am claiming **Minimum** (with parts of Target).
+I am claiming **Target**.
 
 - **M1 — Containers and local dev.** `api/Dockerfile` is multi-stage and runs as `USER node`. `docker compose up -d` starts db, api, web; the todo app works at `http://localhost:8081`.
 - **M2 — Version control.** `main` is protected with all four checks required. Every change landed through a PR. Commit messages follow Conventional Commits.
@@ -74,9 +74,9 @@ I am claiming **Minimum** (with parts of Target).
 - **M6 — No secrets in Git.** `.gitignore` covers `.env`, `.env.*`, `*.tfstate`, `*.old`, `backup/`. `.env.example` documents the shape.
 - **M7 — This README.**
 
-### Target items (partial)
+### Target items
 
-- **T1 — Infrastructure as code.** `infra/` holds OpenTofu for kind + Helm. `tofu apply` and `tofu destroy` work locally. State files are not committed.
+- **T1 — Infrastructure as code.** `infra/` holds OpenTofu for kind + Helm. `tofu apply` creates the cluster and installs the chart. `tofu destroy` tears it down. Running `tofu apply` again rebuilds everything from scratch. State files are not committed (verified with `.gitignore`).
 
 ## When it breaks
 
