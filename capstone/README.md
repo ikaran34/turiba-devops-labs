@@ -44,7 +44,7 @@ M2 — Branching: main protected, every change via PR.
 
 M3 — CI: ci.yml runs lint, unit, integration, image build with smoke test. Green on main.
 
-M4 — Release: v1.0.0 tag from github-actions, image at ghcr.io/<you>/course-api:1.0.0, GitHub Release published.
+M4 — Release: v1.0.0 tag from github-actions, image at ghcr.io/ikaran34/turiba-devops-labs/api:1.0.0, GitHub Release published.
 
 M5 — Cluster: helm install course-app charts/course-app -n course gives 3 API Pods and 1 DB Pod. Data survives a DB Pod restart.
 
