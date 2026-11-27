@@ -76,6 +76,7 @@ I am claiming **Target**.
 
 ### Target items
 
+- **T2 — Security gates.** A `gitleaks` job scans every PR and push for secrets and is a required check. `.github/dependabot.yml` covers `npm`, `github-actions`, and `docker`, and a Dependabot PR was merged. All third-party actions are pinned to full commit SHAs.
 - **T1 — Infrastructure as code.** `infra/` holds OpenTofu for kind + Helm. `tofu apply` creates the cluster and installs the chart. `tofu destroy` tears it down. Running `tofu apply` again rebuilds everything from scratch. State files are not committed (verified with `.gitignore`).
 
 ## When it breaks
