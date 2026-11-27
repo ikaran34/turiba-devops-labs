@@ -37,7 +37,7 @@ services:
   web:
     build: ./web
     ports:
-      - "8080:80"
+      - "8081:80"
     networks: [front]
     depends_on:
       api:

@@ -12,7 +12,7 @@ cd turiba-devops-labs
 cp .env.example .env
 # Edit .env, set DB_PASSWORD to any password you like
 docker compose up -d
-# Open http://localhost:8080 — add a todo, it works.
+# Open http://localhost:8081 — add a todo, it works.
 ```
 
 ### 2. Cluster: kind + Helm
@@ -66,7 +66,7 @@ A commit on a branch becomes a pull request. CI runs four jobs: lint, unit, inte
 
 I am claiming **Minimum** (with parts of Target).
 
-- **M1 — Containers and local dev.** `api/Dockerfile` is multi-stage and runs as `USER node`. `docker compose up -d` starts db, api, web; the todo app works at `http://localhost:8080`.
+- **M1 — Containers and local dev.** `api/Dockerfile` is multi-stage and runs as `USER node`. `docker compose up -d` starts db, api, web; the todo app works at `http://localhost:8081`.
 - **M2 — Version control.** `main` is protected with all four checks required. Every change landed through a PR. Commit messages follow Conventional Commits.
 - **M3 — CI.** `.github/workflows/ci.yml` runs `lint`, `unit`, `integration` (real Postgres 17 service), and `image` (build + smoke test + push on main only). All four are required checks.
 - **M4 — Release 1.0.0.** Tag `v1.0.0` created by `github-actions[bot]`. Image at `ghcr.io/ikaran34/turiba-devops-labs/api:1.0.0` (public, amd64 + arm64). GitHub Release `v1.0.0` with generated notes.
